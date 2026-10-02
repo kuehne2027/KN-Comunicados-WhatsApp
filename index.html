@@ -13,13 +13,19 @@ function notify(s){$('#notice').textContent=s;$('#notice').style.display='block'
 function save(){try{localStorage.setItem(KEY,JSON.stringify({people,message}));storageOK=true}catch{storageOK=false;notify('Não foi possível salvar neste navegador. Use Salvar cópia.')}}
 function stats(){const sent=people.filter(p=>p.sent).length,missing=people.filter(p=>!phone(p.phone)).length;$('#stats').innerHTML=[['Pessoas',people.length],['Pendentes',people.filter(p=>!p.sent&&phone(p.phone)).length],['Sem telefone / conferir',missing],['Enviados',sent]].map(([t,n])=>`<div class="stat"><b>${n}</b>${t}</div>`).join('')}
 const MODE_KEY='kn-whatsapp-mode';let mode='web';try{mode=localStorage.getItem(MODE_KEY)==='app'?'app':'web'}catch{}
-let waWin=null;
+const WA_WINDOW_NAME='KN_WHATSAPP_WEB_UNICA';
 function openChat(n){const text=encodeURIComponent(message);
  if(mode==='app'){const a=document.createElement('a');a.href=(/Android|iPhone|iPad/i.test(navigator.userAgent)?'https://wa.me/'+n+'?text=':'whatsapp://send?phone='+n+'&text=')+text;a.click();return}
  const url='https://web.whatsapp.com/send?phone='+n+'&text='+text;
- try{if(waWin&&!waWin.closed){waWin.location.href=url;waWin.focus();notify('Conversa aberta na aba do WhatsApp Web');return}}catch{}
- waWin=window.open(url,'kn-whatsapp-web');
- if(!waWin)notify('O navegador bloqueou a aba. Libere pop-ups para este site.');}
+ // Sempre usa a mesma janela/aba nomeada. Nos próximos cliques, o navegador
+ // reaproveita essa aba e apenas troca a conversa/destinatário.
+ const w=window.open(url,WA_WINDOW_NAME);
+ if(w){
+   try{w.focus()}catch{}
+   notify('Conversa aberta no WhatsApp Web — os próximos contatos usarão esta mesma aba.');
+ }else{
+   notify('O navegador bloqueou o WhatsApp Web. Libere pop-ups para este site apenas uma vez.');
+ }}
 function validList(scope){return people.filter(p=>phone(p.phone)&&(scope==='all'||scope==='pending'&&!p.sent||scope==='sent'&&p.sent))}
 function render(){stats();const q=$('#search').value.toLocaleLowerCase(),f=$('#filter').value;const rows=people.filter(p=>(p.name+' '+p.phone).toLocaleLowerCase().includes(q)).filter(p=>f==='all'||f==='sent'&&p.sent||f==='pending'&&!p.sent&&phone(p.phone)||f==='missing'&&!phone(p.phone));$('#rows').innerHTML=rows.map(p=>`<tr data-id="${esc(p.id)}"><td>${esc(p.name)}</td><td><input data-phone value="${esc(p.phone)}" inputmode="tel" aria-label="Celular de ${esc(p.name)}" placeholder="DDD + celular"></td><td><span class="badge ${p.sent?'sent':!phone(p.phone)?'missing':''}">${p.sent?'Enviado':!phone(p.phone)?'Completar / conferir':'Pendente'}</span>${p.sentAt?`<div class="muted">${esc(new Date(p.sentAt).toLocaleString('pt-BR'))}</div>`:''}</td><td><div class="actions"><button class="primary" data-open ${!phone(p.phone)||!message.trim()?'disabled':''}>${mode==='app'?'Abrir no app':'Abrir WhatsApp Web'}</button><button data-sent>${p.sent?'Desmarcar':'Marcar enviado'}</button></div></td></tr>`).join('');$('#count').textContent=rows.length+' de '+people.length+' pessoas';}
 $('#message').value=message;
